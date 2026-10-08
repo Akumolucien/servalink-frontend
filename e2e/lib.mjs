@@ -35,7 +35,7 @@ export async function login(page, email, password = PASSWORD) {
   await page.goto(`${APP}/login`);
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("button", { name: "Login" }).click();
   await page.waitForURL(/\/(app|admin)/);
 }
 

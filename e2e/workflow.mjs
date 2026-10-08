@@ -58,7 +58,7 @@ async function register(page, { name, email, city, phone }, { forceOnboarding = 
   await page.getByText("Email verified").waitFor();
   if (forceOnboarding) await page.evaluate(() => localStorage.removeItem("servalink.pendingProfile"));
   await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
-  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("button", { name: "Login" }).click();
 }
 
 async function noHorizontalOverflow(page, label) {
@@ -122,6 +122,39 @@ async function main() {
       await page.getByText("Use at least 8 characters").first().waitFor();
       await page.getByText("The passwords don't match").waitFor();
       await page.getByText("Enter your town or city").waitFor();
+    });
+
+    await step("logout, protected-route redirect, and Cognito password recovery (old password stops working)", async () => {
+      const rec = await mk();
+      const { page } = rec;
+      await register(page, { name: "Recover Me", email: "recover@x.test", city: "Buea", phone: "+237 650 000 000" });
+      await page.waitForURL(/\/app$/);
+      // Logout
+      await page.locator(".user-btn").click();
+      await page.getByRole("button", { name: "Log out" }).click();
+      await page.waitForURL(`${APP}/`);
+      await page.goto(`${APP}/app`);
+      await page.waitForURL(/\/login\?next=/);                       // protected again after logout
+      // Forgot password: request code, reset, then the new password works and the old one does not
+      await page.getByRole("link", { name: "Forgot Password?" }).click();
+      await page.getByLabel("Email").fill("recover@x.test");
+      await page.getByRole("button", { name: "Send code" }).click();
+      await page.getByLabel("Verification code").fill("000000");
+      await page.getByLabel("New password").fill("NewPassw0rd2");
+      await page.getByRole("button", { name: "Update password" }).click();
+      await page.getByText("That code isn't right").waitFor();       // wrong code is explained, nothing changes
+      await page.getByLabel("Verification code").fill("123456");
+      await page.getByRole("button", { name: "Update password" }).click();
+      await page.waitForURL(/\/login\?reset=1/);
+      await page.getByText("Password updated").waitFor();
+      await page.getByLabel("Password", { exact: true }).fill(PASSWORD);   // the OLD password
+      await page.getByRole("button", { name: "Login" }).click();
+      await page.getByText("Incorrect email or password").waitFor();
+      await page.getByLabel("Password", { exact: true }).fill("NewPassw0rd2");
+      await page.getByRole("button", { name: "Login" }).click();
+      await page.waitForURL(/\/app$/);
+      await page.getByRole("heading", { name: /Recover!/ }).waitFor();
+      await rec.ctx.close();
     });
 
     await step("provider tools are locked before approval", async () => {
@@ -440,7 +473,10 @@ async function main() {
     });
 
     await step("no unexpected browser console/page errors during the whole run", async () => {
-      assert(browserErrors.length === 0, browserErrors.slice(0, 3).join(" | "));
+      // The recovery step deliberately submits a wrong code (400) and a wrong password (401); the browser logs those
+      // two expected network failures. Anything else is a real error.
+      const unexpected = browserErrors.filter((e) => !(e.startsWith("[logout, protected-route redirect") && /status of (400|401)/.test(e)));
+      assert(unexpected.length === 0, unexpected.slice(0, 3).join(" | "));
     });
   } finally {
     await browser.close();

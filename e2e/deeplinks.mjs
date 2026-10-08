@@ -81,7 +81,7 @@ const browser = await launch();
 async function signIn(page, email) {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
-  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("button", { name: "Login" }).click();
 }
 async function opensExactly(ctx, url, email, expectPath = pathOf(url)) {
   const page = await ctx.newPage();
@@ -188,7 +188,7 @@ await step("a user with no profile keeps the destination through onboarding", as
 await step("registering from a link keeps the destination through verify, login and profile setup", async () => {
   const ctx = await context(browser); const page = await ctx.newPage();
   await page.goto(L.providerBooking); await page.waitForURL(/\/login\?next=/);
-  await page.getByRole("link", { name: "Create one" }).click();
+  await page.getByRole("link", { name: "Sign Up" }).click();
   await page.getByLabel("Full name").fill("Fresh Face"); await page.getByLabel("Email").fill("fresh@dl.test");
   await page.getByLabel("Town / city").fill("Buea");
   await page.getByLabel("Password", { exact: true }).fill(PASSWORD); await page.getByLabel("Confirm password").fill(PASSWORD);
@@ -196,7 +196,7 @@ await step("registering from a link keeps the destination through verify, login 
   await page.waitForURL(/\/verify\?.*next=/);
   await page.getByLabel("Verification code").fill("123456"); await page.getByRole("button", { name: "Verify email" }).click();
   await page.waitForURL(/\/login\?.*next=/);
-  await page.getByLabel("Password", { exact: true }).fill(PASSWORD); await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByLabel("Password", { exact: true }).fill(PASSWORD); await page.getByRole("button", { name: "Login" }).click();
   await page.waitForURL((u) => u.pathname === bookingPath);
   await ctx.close();
 });

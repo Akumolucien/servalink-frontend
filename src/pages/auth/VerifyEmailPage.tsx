@@ -1,12 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { MailCheck } from "lucide-react";
+import { ArrowRight, KeyRound } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
 import { withNext } from "../../lib/redirect";
 import { isLocalIntegration } from "../../config/env";
+import { AuthInput } from "../../components/auth/AuthFields";
 import { Button } from "../../components/ui/Button";
 import { Banner } from "../../components/ui/Display";
-import { TextField } from "../../components/ui/Field";
 
 export function VerifyEmailPage() {
   const { adapter } = useAuth();
@@ -28,9 +28,11 @@ export function VerifyEmailPage() {
 
   if (!email) {
     return (
-      <section className="card auth-card"><h1>Verify your email</h1>
-        <p className="sub">Start by creating an account or logging in.</p>
-        <div className="row" style={{ justifyContent: "center" }}><Link to="/register" className="btn btn-primary">Create account</Link></div></section>
+      <section aria-labelledby="verify-title">
+        <h1 id="verify-title" className="auth-title">Verify your email</h1>
+        <p className="auth-sub">Start by creating an account or logging in.</p>
+        <div className="auth-form"><Link to="/register" className="btn btn-primary btn-lg btn-block auth-submit">Create Account</Link></div>
+      </section>
     );
   }
 
@@ -59,18 +61,19 @@ export function VerifyEmailPage() {
   };
 
   return (
-    <section className="card auth-card" aria-labelledby="verify-title">
-      <div className="logo"><span className="state-icon" style={{ width: 52, height: 52, borderRadius: 14, display: "grid", placeItems: "center", background: "var(--green-50)", color: "var(--green-700)" }}><MailCheck size={26} aria-hidden="true" /></span></div>
-      <h1 id="verify-title">Check your email</h1>
-      <p className="sub">We sent a verification code to <strong>{email}</strong>.</p>
-      <form className="stack" onSubmit={submit} noValidate>
+    <section aria-labelledby="verify-title">
+      <h1 id="verify-title" className="auth-title">Check your email</h1>
+      <p className="auth-sub">We sent a verification code to <strong>{email}</strong>. Enter it below to activate your account.</p>
+      <form className="auth-form" onSubmit={submit} noValidate>
         {isLocalIntegration && <Banner tone="info">Local integration mode: the verification code is <strong>123456</strong>.</Banner>}
         {notice && <Banner tone="success">{notice}</Banner>}
         {error && <Banner tone="danger">{error}</Banner>}
-        <TextField label="Verification code" inputMode="numeric" autoComplete="one-time-code" placeholder="6-digit code" value={code}
-          onChange={(e) => setCode(e.target.value)} />
-        <Button type="submit" size="lg" block loading={busy}>Verify email</Button>
-        <div className="row" style={{ justifyContent: "center" }}>
+        <AuthInput label="Verification code" placeholder="6-digit code" icon={<KeyRound size={19} />} inputMode="numeric"
+          autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} />
+        <Button type="submit" size="lg" block loading={busy} className="auth-submit">
+          Verify email {!busy && <ArrowRight size={19} aria-hidden="true" />}
+        </Button>
+        <div className="auth-row" style={{ justifyContent: "center" }}>
           <Button variant="ghost" size="sm" onClick={resend} disabled={cooldown > 0}>{cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}</Button>
         </div>
       </form>

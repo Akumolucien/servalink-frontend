@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, KeyRound, Mail } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
 import { isLocalIntegration } from "../../config/env";
+import { AuthInput, AuthPasswordInput } from "../../components/auth/AuthFields";
 import { Button } from "../../components/ui/Button";
 import { Banner } from "../../components/ui/Display";
-import { isEmail, passwordProblem, PasswordField, TextField } from "../../components/ui/Field";
+import { isEmail, passwordProblem } from "../../components/ui/Field";
 
 export function ForgotPasswordPage() {
   const { adapter } = useAuth();
@@ -44,24 +46,25 @@ export function ForgotPasswordPage() {
   };
 
   return (
-    <section className="card auth-card" aria-labelledby="forgot-title">
-      <h1 id="forgot-title">Reset your password</h1>
-      <p className="sub">{step === "email" ? "Enter your email and we'll send you a code." : `Enter the code we sent to ${email}.`}</p>
+    <section aria-labelledby="forgot-title">
+      <h1 id="forgot-title" className="auth-title">Reset your password</h1>
+      <p className="auth-sub">{step === "email" ? "Enter your email and we'll send you a code." : `Enter the code we sent to ${email}.`}</p>
       {step === "email" ? (
-        <form className="stack" onSubmit={requestCode} noValidate>
+        <form className="auth-form" onSubmit={requestCode} noValidate>
           {errors.form && <Banner tone="danger">{errors.form}</Banner>}
-          <TextField label="Email" type="email" placeholder="name@example.com" autoComplete="email" value={email} error={errors.email} onChange={(e) => setEmail(e.target.value)} />
-          <Button type="submit" size="lg" block loading={busy}>Send code</Button>
-          <p className="center"><Link to="/login">Back to log in</Link></p>
+          <AuthInput label="Email" placeholder="Email address" icon={<Mail size={19} />} type="email" autoComplete="email" value={email} error={errors.email} onChange={(e) => setEmail(e.target.value)} />
+          <Button type="submit" size="lg" block loading={busy} className="auth-submit">Send code {!busy && <ArrowRight size={19} aria-hidden="true" />}</Button>
+          <p className="auth-back"><Link to="/login">Back to log in</Link></p>
         </form>
       ) : (
-        <form className="stack" onSubmit={reset} noValidate>
+        <form className="auth-form" onSubmit={reset} noValidate>
           {isLocalIntegration && <Banner tone="info">Local integration mode: the code is <strong>123456</strong>.</Banner>}
           {errors.form && <Banner tone="danger">{errors.form}</Banner>}
-          <TextField label="Verification code" inputMode="numeric" autoComplete="one-time-code" value={code} error={errors.code} onChange={(e) => setCode(e.target.value)} />
-          <PasswordField label="New password" autoComplete="new-password" value={password} error={errors.password}
+          <AuthInput label="Verification code" placeholder="6-digit code" icon={<KeyRound size={19} />} inputMode="numeric" autoComplete="one-time-code" value={code} error={errors.code} onChange={(e) => setCode(e.target.value)} />
+          <AuthPasswordInput label="New password" autoComplete="new-password" value={password} error={errors.password}
             hint="At least 8 characters with uppercase, lowercase and a number." onChange={(e) => setPassword(e.target.value)} />
-          <Button type="submit" size="lg" block loading={busy}>Update password</Button>
+          <Button type="submit" size="lg" block loading={busy} className="auth-submit">Update password {!busy && <ArrowRight size={19} aria-hidden="true" />}</Button>
+          <p className="auth-back"><Link to="/login">Back to log in</Link></p>
         </form>
       )}
     </section>

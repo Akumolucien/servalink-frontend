@@ -51,6 +51,15 @@ node e2e/tour.mjs             # screenshot tour of every main screen at desktop 
 | `lib/` | status/rating labels, timeline builder, formatting, `useResource` |
 | `styles/` | `tokens.css` (palette/type), `base.css`, `ui.css`, `layout.css` |
 
+## Authentication screens
+
+Login, sign up, e-mail verification, password recovery and profile onboarding share one frame (`layouts/AuthShell.tsx`):
+a white rounded card on a light green page, form on the left, curved image panel on the right (`components/auth/`).
+The panel outline is computed from its real size (true arcs, never stretched). Below 900 px the panel is removed so the form
+comes first; fields are icon-led with real (visually hidden) labels. All Cognito logic, validation, `?next=` handling and
+"Remember me" behaviour are unchanged; only markup and `styles/auth.css` changed. The painter photograph is a drop-in file
+(`src/assets/README.md`). No Google/Facebook buttons: those identity providers are not configured.
+
 ## Notification deep links
 
 E-mails, admin SNS mail and push notifications link to exact pages. The routes they target are: `/app/bookings/:id` (shared booking details, both sides), `/app/reports/:id`, `/app/provider`, `/app/become-provider`, `/admin/providers/:id`, `/admin/reports/:id`, `/admin/categories/:id`. The backend owns the event-to-route table (`servalink-backend/lambda/layers/deeplinks/python/servalink_deeplinks.py`) and its tests check every target against `src/App.tsx`, so **adding or renaming one of these routes means updating that table**. The destination is kept through login, registration, verification and onboarding via a same-site-only `?next=` (`src/lib/redirect.ts`). Record pages show a clear message when the record is missing or not yours.

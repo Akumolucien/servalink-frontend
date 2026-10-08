@@ -46,13 +46,13 @@ await check("search page calls GET /providers and shows the empty state", async 
 });
 await check("registration page renders", async () => {
   await page.goto(`${SITE}/register`, { waitUntil: "networkidle" });
-  await page.getByRole("heading", { name: "Create your ServaLink account" }).waitFor();
+  await page.getByRole("heading", { name: "Create Your Account" }).waitFor();
 });
 await check("Cognito is configured: a sign-in for an unknown user gets a Cognito answer (not a config error)", async () => {
   await page.goto(`${SITE}/login`, { waitUntil: "networkidle" });
   await page.getByLabel("Email").fill("smoke-test-nobody@example.invalid");
   await page.getByLabel("Password", { exact: true }).fill("Passw0rd1");
-  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("button", { name: "Login" }).click();
   const banner = page.locator(".banner.danger").first();
   await banner.waitFor({ timeout: 20000 });
   const text = await banner.innerText();

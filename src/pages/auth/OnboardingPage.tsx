@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowRight, MapPin, Phone, User } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
+import { AuthInput } from "../../components/auth/AuthFields";
 import { Button } from "../../components/ui/Button";
 import { Banner } from "../../components/ui/Display";
-import { hasErrors, TextField, type Errors } from "../../components/ui/Field";
+import { hasErrors, type Errors } from "../../components/ui/Field";
 import { useToast } from "../../components/ui/Overlay";
 import { FullPageLoading } from "../../auth/guards";
 import { safeNext } from "../../lib/redirect";
@@ -43,15 +45,15 @@ export function OnboardingPage() {
   };
 
   return (
-    <section className="card auth-card" style={{ width: "min(520px, 100%)" }} aria-labelledby="onboarding-title">
-      <h1 id="onboarding-title">Finish setting up your profile</h1>
-      <p className="sub">Signed in as {session?.email}. Tell us where you're based so providers know who they're helping.</p>
-      <form className="stack" onSubmit={submit} noValidate>
+    <section aria-labelledby="onboarding-title">
+      <h1 id="onboarding-title" className="auth-title">Finish setting up your profile</h1>
+      <p className="auth-sub">Signed in as {session?.email}. Tell us where you're based so providers know who they're helping.</p>
+      <form className="auth-form" onSubmit={submit} noValidate>
         {errors.form && <Banner tone="danger">{errors.form}</Banner>}
-        <TextField label="Full name" autoComplete="name" value={form.full_name} error={errors.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
-        <TextField label="Town / city" placeholder="e.g. Buea" autoComplete="address-level2" value={form.city} error={errors.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-        <TextField label="Phone number" optional type="tel" placeholder="+237 6XX XXX XXX" autoComplete="tel" value={form.phone} error={errors.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        <Button type="submit" size="lg" block loading={busy}>Save and continue</Button>
+        <AuthInput label="Full name" icon={<User size={19} />} autoComplete="name" value={form.full_name} error={errors.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+        <AuthInput label="Town / city" placeholder="Town / city (e.g. Buea)" icon={<MapPin size={19} />} autoComplete="address-level2" value={form.city} error={errors.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+        <AuthInput label="Phone number" placeholder="Phone (optional)" icon={<Phone size={19} />} type="tel" autoComplete="tel" value={form.phone} error={errors.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        <Button type="submit" size="lg" block loading={busy} className="auth-submit">Save and continue {!busy && <ArrowRight size={19} aria-hidden="true" />}</Button>
       </form>
     </section>
   );

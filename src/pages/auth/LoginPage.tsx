@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowRight, Mail } from "lucide-react";
 import { AuthError } from "../../auth/adapter";
 import { useAuth } from "../../auth/AuthContext";
+import { AuthPasswordInput, AuthInput } from "../../components/auth/AuthFields";
 import { Button } from "../../components/ui/Button";
 import { Banner } from "../../components/ui/Display";
-import { isEmail, PasswordField, TextField } from "../../components/ui/Field";
+import { isEmail } from "../../components/ui/Field";
 import { withNext } from "../../lib/redirect";
 
 export function LoginPage() {
@@ -41,24 +43,27 @@ export function LoginPage() {
 
   const next = params.get("next");
   return (
-    <section className="card auth-card" aria-labelledby="login-title">
-      <h1 id="login-title">Welcome back</h1>
-      <p className="sub">Log in to your ServaLink account.</p>
-      <form className="stack" onSubmit={submit} noValidate>
+    <section aria-labelledby="login-title">
+      <h1 id="login-title" className="auth-title">Welcome Back</h1>
+      <p className="auth-sub">Log in to your account to find or manage local services.</p>
+      <form className="auth-form" onSubmit={submit} noValidate>
         {params.get("verified") && <Banner tone="success">Email verified. Log in to continue.</Banner>}
         {params.get("reset") && <Banner tone="success">Password updated. Log in with your new password.</Banner>}
         {sessionExpired && <Banner tone="warning">Your session expired. Please log in again.</Banner>}
         {errors.form && <Banner tone="danger">{errors.form}</Banner>}
-        <TextField label="Email" type="email" placeholder="name@example.com" autoComplete="email" value={email}
+        <AuthInput label="Email" placeholder="Email address" icon={<Mail size={19} />} type="email" autoComplete="email" value={email}
           error={errors.email} onChange={(e) => setEmail(e.target.value)} />
-        <PasswordField label="Password" autoComplete="current-password" value={password} error={errors.password}
+        <AuthPasswordInput label="Password" autoComplete="current-password" value={password} error={errors.password}
           onChange={(e) => setPassword(e.target.value)} />
-        <div className="row-between">
+        <div className="auth-row">
           <label className="check"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />Remember me</label>
-          <Link to="/forgot-password" className="small">Forgot password?</Link>
+          <Link to="/forgot-password">Forgot Password?</Link>
         </div>
-        <Button type="submit" size="lg" block loading={busy}>Log in</Button>
-        <p className="center">Don't have an account? <Link to={withNext("/register", next)}>Create one</Link></p>
+        <Button type="submit" size="lg" block loading={busy} className="auth-submit">
+          Login {!busy && <ArrowRight size={19} aria-hidden="true" />}
+        </Button>
+        <div className="auth-or" aria-hidden="true">Or</div>
+        <p className="auth-switch">Don't have an account?<Link to={withNext("/register", next)}>Sign Up</Link></p>
       </form>
     </section>
   );

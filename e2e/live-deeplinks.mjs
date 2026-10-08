@@ -26,7 +26,7 @@ async function openAs(ctx, user, path) {
   if (decodeURIComponent(new URL(page.url()).searchParams.get("next")) !== path) throw new Error("login lost the destination: " + page.url());
   await page.getByLabel("Email").fill(USERS[user].email);
   await page.getByLabel("Password", { exact: true }).fill(USERS[user].pw);
-  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("button", { name: "Login" }).click();
   await page.waitForURL((u) => u.pathname === path, { timeout: 45000 });
   return page;
 }
