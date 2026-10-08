@@ -27,3 +27,7 @@ aws amplify start-deployment --region us-east-1 --app-id $APP_ID --branch-name m
   `/app/bookings/<id>` and `/admin/reports/<id>` work when opened directly from an e-mail.
 - Rollback: re-deploy the previous zip (`create-deployment` + `start-deployment`), or delete the app.
 - Not included yet: a Content-Security-Policy header (needs testing against Cognito, the API and S3 upload hosts).
+
+## Live site
+
+Hosted on Amplify (app `servalink-web`, id `d3t3isz8grbi9v`): https://main.d3t3isz8grbi9v.amplifyapp.com. `node e2e/live-smoke.mjs` smoke-tests it (read-only, real browser).
