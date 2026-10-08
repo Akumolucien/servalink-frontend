@@ -1,4 +1,50 @@
-import{useState}from"react";import{BookingCard,type BookingStatus}from"../../components/ui/BookingCard";
-const bookings=[{id:"BKG-2041",service:"Electrical Installation",person:"John N.",city:"Buea",date:"13 Oct 2026",time:"9:00 AM",description:"Install two new wall sockets.",status:"PENDING" as BookingStatus},{id:"BKG-2036",service:"Electrical Repair",person:"Mary A.",city:"Buea",date:"12 Oct 2026",time:"10:00 AM",status:"IN_PROGRESS" as BookingStatus},{id:"BKG-2028",service:"Electrical Inspection",person:"Kevin T.",city:"Buea",date:"10 Oct 2026",time:"3:00 PM",status:"AWAITING_CONFIRMATION" as BookingStatus}];
-const filters=["ALL","PENDING","ACCEPTED","IN_PROGRESS","AWAITING_CONFIRMATION","COMPLETED"] as const;const nice=(x:string)=>x==="ALL"?"All":x==="PENDING"?"New Requests":x.split("_").map(w=>w[0]+w.slice(1).toLowerCase()).join(" ");
-export function ProviderBookingsPage(){const[filter,setFilter]=useState<(typeof filters)[number]>("ALL");const shown=filter==="ALL"?bookings:bookings.filter(b=>b.status===filter);return <><div className="page-head"><h1>Provider Bookings</h1><p className="muted">Manage requests customers have made for your services.</p></div><div className="tabs booking-filter-tabs">{filters.map(f=><button key={f} className={`tab ${filter===f?"active":""}`} onClick={()=>setFilter(f)}>{nice(f)}</button>)}</div>{shown.length?shown.map(b=><BookingCard key={b.id}{...b}perspective="provider"/>):<p className="muted">No provider bookings in this state.</p>}</>}
+import { useState } from "react";
+import { Inbox } from "lucide-react";
+import { api, type Booking } from "../../api";
+import { BookingCard } from "../../components/domain/Booking";
+import { CardSkeleton, EmptyState, ErrorState, PageHeader } from "../../components/ui/Display";
+import { Tabs } from "../../components/ui/Tabs";
+import { CLOSED_BOOKING } from "../../lib/status";
+import { useResource } from "../../lib/useResource";
+
+type Tab = "requests" | "active" | "awaiting" | "completed" | "closed";
+const FILTERS: Record<Tab, (b: Booking) => boolean> = {
+  requests: (b) => b.status === "PENDING",
+  active: (b) => b.status === "ACCEPTED" || b.status === "IN_PROGRESS",
+  awaiting: (b) => b.status === "AWAITING_CONFIRMATION",
+  completed: (b) => b.status === "COMPLETED",
+  closed: (b) => CLOSED_BOOKING.includes(b.status),
+};
+const EMPTY: Record<Tab, string> = {
+  requests: "New booking requests from customers will appear here.",
+  active: "Jobs you've accepted or started will appear here.",
+  awaiting: "Jobs you marked finished are waiting here for the customer to confirm.",
+  completed: "Jobs the customer confirmed will appear here.",
+  closed: "Requests you rejected, or that customers cancelled, appear here.",
+};
+
+/** Provider view of bookings: requests customers sent to my provider profile. */
+export function ProviderBookingsPage() {
+  const [tab, setTab] = useState<Tab>("requests");
+  const bookings = useResource(() => api.bookings("provider"), []);
+  const all = bookings.data ?? [];
+  const count = (t: Tab) => (bookings.data ? all.filter(FILTERS[t]).length : undefined);
+  const shown = all.filter(FILTERS[tab]);
+
+  return (
+    <>
+      <PageHeader title="Booking requests" subtitle="Requests customers sent to your provider profile." />
+      <div className="stack">
+        <Tabs label="Filter booking requests" value={tab} onChange={setTab} tabs={[
+          { id: "requests", label: "New requests", count: count("requests") }, { id: "active", label: "Active", count: count("active") },
+          { id: "awaiting", label: "Awaiting confirmation", count: count("awaiting") }, { id: "completed", label: "Completed", count: count("completed") },
+          { id: "closed", label: "Closed", count: count("closed") },
+        ]} />
+        {bookings.loading && !bookings.data ? <CardSkeleton rows={3} />
+          : bookings.error ? <ErrorState error={bookings.error} onRetry={bookings.reload} title="We couldn't load booking requests" />
+            : shown.length === 0 ? <div className="card"><EmptyState icon={<Inbox size={24} />} title="Nothing here">{EMPTY[tab]}</EmptyState></div>
+              : <div className="stack">{shown.map((b) => <BookingCard key={b.booking_id} booking={b} onChanged={bookings.reload} />)}</div>}
+      </div>
+    </>
+  );
+}

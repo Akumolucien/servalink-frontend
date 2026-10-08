@@ -2,3 +2,8 @@ node_modules
 dist
 .env
 .env.local
+
+# generated / test output
+*.tsbuildinfo
+e2e/screenshots/
+e2e/fixtures/

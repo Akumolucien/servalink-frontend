@@ -1,40 +1,65 @@
 import { useState, type FormEvent } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Card } from "../../components/ui/Card";
-import { Button } from "../../components/ui/Button";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { AuthError } from "../../auth/adapter";
 import { useAuth } from "../../auth/AuthContext";
-import "./Auth.css";
+import { Button } from "../../components/ui/Button";
+import { Banner } from "../../components/ui/Display";
+import { isEmail, PasswordField, TextField } from "../../components/ui/Field";
+import { withNext } from "../../lib/redirect";
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { signIn, sessionExpired } = useAuth();
   const navigate = useNavigate();
-  const from = (useLocation().state as { from?: string } | null)?.from;
-  const [email, setEmail] = useState("");
+  const [params] = useSearchParams();
+  const [email, setEmail] = useState(params.get("email") ?? "");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [remember, setRemember] = useState(true);
+  const [errors, setErrors] = useState<{ email?: string; password?: string; form?: string }>({});
   const [busy, setBusy] = useState(false);
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setError(""); setBusy(true);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const next = {
+      email: isEmail(email) ? undefined : "Enter a valid email address",
+      password: password ? undefined : "Enter your password",
+    };
+    setErrors(next);
+    if (next.email || next.password) return;
+    setBusy(true);
     try {
-      const u = await login(email.trim(), password);
-      navigate(u.roles.includes("ADMIN") ? "/admin" : from ?? "/account", { replace: true });
-    } catch (err) {
-      setError((err as Error).message);
-    } finally { setBusy(false); }
-  }
+      await signIn(email.trim().toLowerCase(), password, remember);
+      // GuestOnly redirects to ?next=, /app or /admin once the session exists.
+    } catch (error) {
+      if (error instanceof AuthError && error.code === "UserNotConfirmedException") {
+        navigate(withNext(`/verify?email=${encodeURIComponent(email.trim())}`, params.get("next")), { replace: true });
+        return;
+      }
+      setErrors({ form: error instanceof Error ? error.message : "We couldn't log you in. Try again." });
+      setBusy(false);
+    }
+  };
 
+  const next = params.get("next");
   return (
-    <div className="auth"><Card>
-      <h1>Welcome back</h1><p>Log in to your SERVAlink account.</p>
-      <form onSubmit={submit} noValidate>
-        {error && <p className="auth-error" role="alert">{error}</p>}
-        <div className="field"><label htmlFor="email">Email</label><input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-        <div className="field"><label htmlFor="password">Password</label><input id="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-        <Button type="submit" disabled={busy || !email || !password}>{busy ? "Logging in…" : "Login"}</Button>
+    <section className="card auth-card" aria-labelledby="login-title">
+      <h1 id="login-title">Welcome back</h1>
+      <p className="sub">Log in to your ServaLink account.</p>
+      <form className="stack" onSubmit={submit} noValidate>
+        {params.get("verified") && <Banner tone="success">Email verified. Log in to continue.</Banner>}
+        {params.get("reset") && <Banner tone="success">Password updated. Log in with your new password.</Banner>}
+        {sessionExpired && <Banner tone="warning">Your session expired. Please log in again.</Banner>}
+        {errors.form && <Banner tone="danger">{errors.form}</Banner>}
+        <TextField label="Email" type="email" placeholder="name@example.com" autoComplete="email" value={email}
+          error={errors.email} onChange={(e) => setEmail(e.target.value)} />
+        <PasswordField label="Password" autoComplete="current-password" value={password} error={errors.password}
+          onChange={(e) => setPassword(e.target.value)} />
+        <div className="row-between">
+          <label className="check"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />Remember me</label>
+          <Link to="/forgot-password" className="small">Forgot password?</Link>
+        </div>
+        <Button type="submit" size="lg" block loading={busy}>Log in</Button>
+        <p className="center">Don't have an account? <Link to={withNext("/register", next)}>Create one</Link></p>
       </form>
-      <p><Link to="/forgot-password">Forgot password?</Link> · <Link to="/signup">Create an account</Link></p>
-    </Card></div>
+    </section>
   );
 }

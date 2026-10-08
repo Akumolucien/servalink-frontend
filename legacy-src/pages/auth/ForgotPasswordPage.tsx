@@ -1,0 +1,1 @@
+import{Card}from"../../components/ui/Card";import{Button}from"../../components/ui/Button";import"./Auth.css";export function ForgotPasswordPage(){return <div className="auth"><Card><h1>Reset password</h1><p>Enter your account email.</p><div className="field"><label>Email</label><input type="email"/></div><Button>Continue</Button></Card></div>}

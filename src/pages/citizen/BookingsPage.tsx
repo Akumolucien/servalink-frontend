@@ -1,5 +1,50 @@
-import{useState}from"react";import{BookingCard,type BookingStatus}from"../../components/ui/BookingCard";
-const bookings=[{id:"BKG-1024",service:"Electrical Repair",person:"Samuel N.",city:"Buea",date:"12 Oct 2026",time:"10:00 AM",description:"Fix electrical sockets in the living room.",status:"IN_PROGRESS" as BookingStatus},{id:"BKG-1018",service:"Plumbing",person:"Grace T.",city:"Buea",date:"09 Oct 2026",time:"2:00 PM",description:"Repair a leaking kitchen pipe.",status:"AWAITING_CONFIRMATION" as BookingStatus},{id:"BKG-1009",service:"Computer Repair",person:"David K.",city:"Buea",date:"03 Oct 2026",time:"11:30 AM",status:"COMPLETED" as BookingStatus}];
-const filters=["ALL","PENDING","ACCEPTED","IN_PROGRESS","AWAITING_CONFIRMATION","COMPLETED","CANCELLED"] as const;
-const nice=(x:string)=>x==="ALL"?"All":x.split("_").map(w=>w[0]+w.slice(1).toLowerCase()).join(" ");
-export function BookingsPage(){const[filter,setFilter]=useState<(typeof filters)[number]>("ALL");const shown=filter==="ALL"?bookings:bookings.filter(b=>b.status===filter);return <><div className="page-head"><h1>My Bookings</h1><p className="muted">Track every service request and see its current progress.</p></div><div className="tabs booking-filter-tabs">{filters.map(f=><button key={f} className={`tab ${filter===f?"active":""}`} onClick={()=>setFilter(f)}>{nice(f)}</button>)}</div>{shown.length?shown.map(b=><BookingCard key={b.id}{...b}perspective="citizen"/>):<p className="muted">No bookings in this state.</p>}</>}
+import { useState } from "react";
+import { CalendarX2 } from "lucide-react";
+import { api, type Booking } from "../../api";
+import { BookingCard } from "../../components/domain/Booking";
+import { ButtonLink } from "../../components/ui/Button";
+import { CardSkeleton, EmptyState, ErrorState, PageHeader } from "../../components/ui/Display";
+import { Tabs } from "../../components/ui/Tabs";
+import { ACTIVE_BOOKING, CLOSED_BOOKING } from "../../lib/status";
+import { useResource } from "../../lib/useResource";
+
+type Tab = "all" | "active" | "completed" | "closed";
+const FILTERS: Record<Tab, (b: Booking) => boolean> = {
+  all: () => true,
+  active: (b) => ACTIVE_BOOKING.includes(b.status),
+  completed: (b) => b.status === "COMPLETED",
+  closed: (b) => CLOSED_BOOKING.includes(b.status),
+};
+
+export function BookingsPage() {
+  const [tab, setTab] = useState<Tab>("all");
+  const bookings = useResource(() => api.bookings("citizen"), []);
+  const all = bookings.data ?? [];
+  const shown = all.filter(FILTERS[tab]);
+  const count = (t: Tab) => (bookings.data ? all.filter(FILTERS[t]).length : undefined);
+
+  return (
+    <>
+      <PageHeader title="My bookings" subtitle="Services you've requested from providers."
+        actions={<ButtonLink to="/search">Find a service</ButtonLink>} />
+      <div className="stack">
+        <Tabs label="Filter bookings" value={tab} onChange={setTab} tabs={[
+          { id: "all", label: "All", count: count("all") }, { id: "active", label: "Active", count: count("active") },
+          { id: "completed", label: "Completed", count: count("completed") }, { id: "closed", label: "Cancelled or rejected", count: count("closed") },
+        ]} />
+        {bookings.loading && !bookings.data ? <CardSkeleton rows={3} />
+          : bookings.error ? <ErrorState error={bookings.error} onRetry={bookings.reload} title="We couldn't load your bookings" />
+            : shown.length === 0 ? (
+              <div className="card">
+                <EmptyState icon={<CalendarX2 size={24} />} title={all.length === 0 ? "No bookings yet" : "No bookings in this view"}
+                  action={all.length === 0 ? <ButtonLink to="/search">Find a service</ButtonLink> : undefined}>
+                  {all.length === 0 ? "When you book a provider, you can follow every step of the job here." : "Try another tab to see your other bookings."}
+                </EmptyState>
+              </div>
+            ) : (
+              <div className="stack">{shown.map((b) => <BookingCard key={b.booking_id} booking={b} onChanged={bookings.reload} />)}</div>
+            )}
+      </div>
+    </>
+  );
+}

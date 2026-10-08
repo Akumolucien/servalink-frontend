@@ -1,0 +1,20 @@
+// Smoke test of the PRODUCTION bundle (vite preview): real Amplify path, no dev banner, graceful handling of the API in .env.
+import { chromium } from "playwright-core";
+const browser = await chromium.launch({ executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe", headless: true });
+const page = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
+const errors = []; page.on("pageerror", (e) => errors.push(String(e)));
+const base = "http://127.0.0.1:4273";
+await page.goto(base); await page.getByRole("heading", { name: /Find trusted local service providers/ }).waitFor();
+const banner = await page.getByText("LOCAL INTEGRATION MODE").count();
+console.log("home renders; local banner count:", banner);
+await page.getByLabel("Service category").waitFor();
+console.log("category select state:", await page.getByLabel("Service category").locator("option").first().innerText());
+await page.goto(base + "/login"); await page.getByRole("heading", { name: "Welcome back" }).waitFor();
+await page.getByLabel("Email").fill("nobody@example.com"); await page.getByLabel("Password", { exact: true }).fill("Passw0rd1");
+await page.getByRole("button", { name: "Log in" }).click();
+const msg = await page.locator(".banner.danger").first().innerText({ timeout: 20000 }).catch(() => "(no error banner)");
+console.log("real Cognito rejects unknown user with:", JSON.stringify(msg));
+await page.goto(base + "/app"); await page.waitForURL(/\/login\?next=/);
+console.log("protected route redirects to login: ok");
+console.log("page errors:", errors.length ? errors : "none");
+await browser.close();

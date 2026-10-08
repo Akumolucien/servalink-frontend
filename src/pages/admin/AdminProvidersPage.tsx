@@ -1,0 +1,131 @@
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Users } from "lucide-react";
+import { api, type AdminProvider, type ProviderStatus } from "../../api";
+import { NoteModal } from "../../components/domain/NoteModal";
+import { Button } from "../../components/ui/Button";
+import { Avatar, Banner, CardSkeleton, EmptyState, ErrorState, PageHeader, StatusBadge } from "../../components/ui/Display";
+import { Modal, useToast } from "../../components/ui/Overlay";
+import { Tabs } from "../../components/ui/Tabs";
+import { formatDateTime } from "../../lib/format";
+import { PROVIDER_STATUS } from "../../lib/status";
+import { useResource } from "../../lib/useResource";
+
+type Tab = "PENDING" | "APPROVED" | "SUSPENDED" | "REJECTED" | "BANNED";
+type Decision = Exclude<ProviderStatus, "PENDING">;
+
+interface DecisionDef { status: Decision; label: string; variant: "primary" | "danger-outline" | "secondary"; tone?: "danger"; noteLabel: string; seed?: string; done: string }
+
+const DECISIONS: Record<ProviderStatus, DecisionDef[]> = {
+  PENDING: [
+    { status: "APPROVED", label: "Approve", variant: "primary", noteLabel: "Note for the provider", seed: "Verified and approved.", done: "Provider approved" },
+    { status: "REJECTED", label: "Reject", variant: "danger-outline", tone: "danger", noteLabel: "Reason for rejecting", done: "Application rejected" },
+  ],
+  APPROVED: [
+    { status: "SUSPENDED", label: "Suspend", variant: "danger-outline", tone: "danger", noteLabel: "Reason for suspending", done: "Provider suspended" },
+    { status: "BANNED", label: "Ban", variant: "danger-outline", tone: "danger", noteLabel: "Reason for banning", done: "Provider banned" },
+  ],
+  SUSPENDED: [
+    { status: "APPROVED", label: "Reinstate", variant: "primary", noteLabel: "Note for the provider", seed: "Suspension lifted.", done: "Provider reinstated" },
+    { status: "BANNED", label: "Ban", variant: "danger-outline", tone: "danger", noteLabel: "Reason for banning", done: "Provider banned" },
+  ],
+  REJECTED: [], BANNED: [],
+};
+
+export function AdminProvidersPage() {
+  const toast = useToast();
+  const providers = useResource(() => api.adminProviders(), []);
+  const [tab, setTab] = useState<Tab>("PENDING");
+  const [detail, setDetail] = useState<AdminProvider | null>(null);
+  const [decision, setDecision] = useState<{ provider: AdminProvider; def: DecisionDef } | null>(null);
+
+  // Deep link (notification e-mail): /admin/providers/:id opens that application.
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const openedFor = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!id || !providers.data || openedFor.current === id) return;
+    openedFor.current = id;
+    const found = providers.data.find((p) => p.provider_id === id);
+    if (found) { setTab(found.status as Tab); setDetail(found); }
+  }, [id, providers.data]);
+  const missing = !!id && !!providers.data && !providers.data.some((p) => p.provider_id === id);
+  const leaveRoute = () => { if (id) navigate("/admin/providers", { replace: true }); };
+
+  const all = providers.data ?? [];
+  const shown = all.filter((p) => p.status === tab);
+  const count = (status: Tab) => (providers.data ? all.filter((p) => p.status === status).length : undefined);
+
+  return (
+    <>
+      <PageHeader title="Providers" subtitle="Review applications and manage provider access." />
+      {missing && (
+        <div style={{ marginBottom: 16 }}>
+          <Banner tone="warning" action={<Link className="small nowrap" to="/admin/providers">View all providers</Link>}>
+            <strong>We couldn't find that provider application.</strong>
+            <span>The link may be out of date, or the record may have been removed.</span>
+          </Banner>
+        </div>
+      )}
+      <div className="stack">
+        <Tabs label="Provider status" value={tab} onChange={setTab} tabs={[
+          { id: "PENDING", label: "Pending", count: count("PENDING") }, { id: "APPROVED", label: "Active", count: count("APPROVED") },
+          { id: "SUSPENDED", label: "Suspended", count: count("SUSPENDED") }, { id: "REJECTED", label: "Rejected", count: count("REJECTED") },
+          { id: "BANNED", label: "Banned", count: count("BANNED") },
+        ]} />
+        {providers.loading && !providers.data ? <CardSkeleton rows={2} />
+          : providers.error ? <ErrorState error={providers.error} onRetry={providers.reload} title="We couldn't load providers" />
+            : shown.length === 0 ? <div className="card"><EmptyState icon={<Users size={24} />} title={`No ${PROVIDER_STATUS[tab].label.toLowerCase()} providers`}>Providers with this status appear here.</EmptyState></div>
+              : (
+                <div className="card table-wrap">
+                  <table className="table">
+                    <thead><tr><th>Provider</th><th>Category</th><th>Town</th><th>Submitted</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead>
+                    <tbody>
+                      {shown.map((p) => (
+                        <tr key={p.provider_id}>
+                          <td><div className="row" style={{ gap: 10, flexWrap: "nowrap" }}><Avatar name={p.name} size={36} /><span><strong>{p.name}</strong><br /><span className="muted xs">{p.email}</span></span></div></td>
+                          <td>{p.service_category}<br /><span className="muted xs">{p.service_title}</span></td>
+                          <td>{p.city}</td><td className="nowrap">{formatDateTime(p.created_at)}</td>
+                          <td><StatusBadge label={PROVIDER_STATUS[p.status].label} tone={PROVIDER_STATUS[p.status].tone} /></td>
+                          <td><Button size="sm" variant="secondary" onClick={() => setDetail(p)}>{DECISIONS[p.status].length ? "Review" : "Details"}</Button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+      </div>
+
+      <Modal wide open={!!detail} title={detail ? `${detail.name}'s application` : ""} onClose={() => { setDetail(null); leaveRoute(); }}
+        footer={detail && DECISIONS[detail.status].map((def) => (
+          <Button key={def.status} variant={def.variant} onClick={() => { setDecision({ provider: detail, def }); setDetail(null); }}>{def.label}</Button>
+        ))}>
+        {detail && (
+          <div className="modal-body form">
+            <dl className="kv">
+              <dt>Status</dt><dd><StatusBadge label={PROVIDER_STATUS[detail.status].label} tone={PROVIDER_STATUS[detail.status].tone} /></dd>
+              <dt>Email</dt><dd>{detail.email}</dd><dt>Phone</dt><dd>{detail.phone || "None"}</dd>
+              <dt>Category</dt><dd>{detail.service_category}</dd><dt>Service title</dt><dd>{detail.service_title}</dd>
+              <dt>Description</dt><dd style={{ whiteSpace: "pre-line" }}>{detail.description || "None"}</dd>
+              <dt>Town / city</dt><dd>{detail.city}</dd><dt>Submitted</dt><dd>{formatDateTime(detail.created_at)}</dd>
+              {detail.status_reason && <><dt>Last note</dt><dd>{detail.status_reason}</dd></>}
+            </dl>
+          </div>
+        )}
+      </Modal>
+
+      <NoteModal open={!!decision} title={decision ? `${decision.def.label} ${decision.provider.name}?` : ""}
+        label={decision?.def.noteLabel ?? ""} confirmLabel={decision?.def.label ?? ""} tone={decision?.def.tone}
+        initialNote={decision?.def.seed ?? ""}
+        intro={decision?.def.status === "APPROVED" ? <p className="muted small">Approving adds the PROVIDER group to this person's existing account. They'll need to refresh their access (or log in again) to see Provider Tools.</p> : undefined}
+        onClose={() => { setDecision(null); leaveRoute(); }}
+        onSubmit={async (note) => {
+          await api.adminSetProviderStatus(decision!.provider.provider_id, decision!.def.status, note);
+          toast.success(decision!.def.done);
+          setDecision(null);
+          leaveRoute();
+          await providers.reload();
+        }} />
+    </>
+  );
+}

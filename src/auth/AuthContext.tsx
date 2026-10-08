@@ -1,72 +1,196 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { fetchAuthSession, signIn, signOut } from "aws-amplify/auth";
-import type { Role } from "../types";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { api, type Profile, type ProviderRecord } from "../api";
+import { configureClient } from "../api/client";
+import { isLocalIntegration } from "../config/env";
+import type { AuthAdapter, AuthSession } from "./adapter";
+import { createAmplifyAdapter } from "./amplifyAdapter";
 
-export type AuthUser = { id: string; email: string; roles: Role[] };
-type AuthCtx = {
-  user: AuthUser | null; loading: boolean; isProvider: boolean; isAdmin: boolean;
-  login: (email: string, password: string) => Promise<AuthUser>;
-  logout: () => Promise<void>;
-  refresh: () => Promise<AuthUser | null>;
-};
-const Ctx = createContext<AuthCtx | null>(null);
+type Status = "loading" | "anonymous" | "authenticated";
 
-/** Roles come from Cognito groups. The backend remains the real security boundary. */
-async function loadUser(force = false): Promise<AuthUser | null> {
-  try {
-    const session = await fetchAuthSession({ forceRefresh: force });
-    const p = session.tokens?.idToken?.payload;
-    if (!p) return null;
-    const groups = (p["cognito:groups"] as string[] | undefined) ?? [];
-    const roles: Role[] = groups.includes("ADMIN") ? ["ADMIN"] : groups.includes("PROVIDER") ? ["CITIZEN", "PROVIDER"] : ["CITIZEN"];
-    return { id: String(p.sub), email: String(p.email ?? ""), roles };
-  } catch {
-    return null;
-  }
+interface PendingProfile { email: string; full_name: string; city: string; phone: string }
+const PENDING_KEY = "servalink.pendingProfile";
+
+export function rememberPendingProfile(profile: PendingProfile) {
+  try { localStorage.setItem(PENDING_KEY, JSON.stringify({ ...profile, email: profile.email.toLowerCase() })); } catch { /* ignore */ }
 }
 
-const friendly = (e: unknown) => {
-  const name = (e as Error)?.name;
-  if (name === "NotAuthorizedException" || name === "UserNotFoundException") return "Incorrect email or password.";
-  if (name === "UserNotConfirmedException") return "Please verify your email address before logging in.";
-  return "We couldn't log you in. Please try again.";
-};
+function takePendingProfile(email: string): PendingProfile | null {
+  try {
+    const value = JSON.parse(localStorage.getItem(PENDING_KEY) ?? "null") as PendingProfile | null;
+    return value && value.email === email.toLowerCase() ? value : null;
+  } catch { return null; }
+}
+
+interface AuthValue {
+  status: Status;
+  session: AuthSession | null;
+  /** undefined: not loaded (or admin-only); null: signed in but no application profile yet. */
+  profile: Profile | null | undefined;
+  provider: ProviderRecord | null;
+  accountLoading: boolean;
+  isAdmin: boolean;
+  /** PROVIDER group in the token AND an APPROVED provider record. */
+  hasProviderTools: boolean;
+  /** Approved by Admin but the current token predates the PROVIDER group. */
+  needsSessionRefresh: boolean;
+  sessionExpired: boolean;
+  displayName: string;
+  adapter: AuthAdapter | null;
+  signIn: (email: string, password: string, remember: boolean) => Promise<void>;
+  signOut: () => Promise<void>;
+  /** Re-issues the token so new Cognito groups apply, then reloads the account. */
+  refreshSession: () => Promise<boolean>;
+  reloadAccount: () => Promise<void>;
+  saveProfile: (body: Parameters<typeof api.saveProfile>[0]) => Promise<Profile>;
+}
+
+const Context = createContext<AuthValue | null>(null);
+
+export function useAuth(): AuthValue {
+  const value = useContext(Context);
+  if (!value) throw new Error("useAuth must be used inside AuthProvider");
+  return value;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [adapter, setAdapter] = useState<AuthAdapter | null>(null);
+  const [status, setStatus] = useState<Status>("loading");
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
+  const [provider, setProvider] = useState<ProviderRecord | null>(null);
+  const [accountLoading, setAccountLoading] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const adapterRef = useRef<AuthAdapter | null>(null);
+  const sessionRef = useRef<AuthSession | null>(null);
+  sessionRef.current = session;
 
-  useEffect(() => {
-    let live = true;
-    loadUser().then((u) => { if (live) { setUser(u); setLoading(false); } });
-    return () => { live = false; };
-  }, []);
+  const isAdmin = !!session?.groups.includes("ADMIN");
 
-  const login = useCallback(async (email: string, password: string) => {
-    try {
-      await signIn({ username: email, password });
-    } catch (e) {
-      if ((e as Error).name !== "UserAlreadyAuthenticatedException") throw new Error(friendly(e));
+  const loadAccount = useCallback(async (current: AuthSession) => {
+    if (current.groups.includes("ADMIN")) {
+      setProfile(undefined); setProvider(null); return current;
     }
-    const u = await loadUser();
-    if (!u) throw new Error("Please verify your email address before logging in.");
-    setUser(u);
-    return u;
+    setAccountLoading(true);
+    try {
+      const [loadedProfile, loadedProvider] = await Promise.all([api.profile(), api.myProvider()]);
+      let finalProfile = loadedProfile;
+      if (!finalProfile) {
+        // Registration data collected before email verification is saved on first login.
+        const pending = takePendingProfile(current.email);
+        if (pending) {
+          try {
+            finalProfile = await api.saveProfile({ full_name: pending.full_name, city: pending.city, phone: pending.phone });
+          } catch { finalProfile = null; }
+        }
+      }
+      setProfile(finalProfile);
+      setProvider(loadedProvider);
+      // Approved by Admin but this token has no PROVIDER group yet: refresh it once automatically.
+      if (loadedProvider?.status === "APPROVED" && !current.groups.includes("PROVIDER") && adapterRef.current) {
+        const flag = `servalink.autorefresh.${current.sub}`;
+        let tried = false;
+        try { tried = sessionStorage.getItem(flag) === "1"; sessionStorage.setItem(flag, "1"); } catch { /* ignore */ }
+        if (!tried) {
+          const fresh = await adapterRef.current.getSession(true);
+          if (fresh) { setSession(fresh); return fresh; }
+        }
+      }
+    } catch {
+      /* Pages surface their own errors; keep the session. */
+    } finally {
+      setAccountLoading(false);
+    }
+    return current;
   }, []);
 
-  const logout = useCallback(async () => { await signOut(); setUser(null); }, []);
-  const refresh = useCallback(async () => { const u = await loadUser(true); setUser(u); return u; }, []);
+  // Boot: choose the adapter (simulated auth only in local integration), restore the session.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let chosen: AuthAdapter;
+      if (isLocalIntegration) {
+        const { createDevAdapter } = await import("./devAdapter");
+        chosen = createDevAdapter();
+      } else {
+        chosen = createAmplifyAdapter();
+      }
+      adapterRef.current = chosen;
+      setAdapter(chosen);
+      configureClient({
+        getToken: async () => (await chosen.getSession())?.idToken ?? null,
+        onUnauthorized: () => {
+          if (!sessionRef.current) return;
+          void chosen.signOut();
+          setSession(null); setProfile(undefined); setProvider(null);
+          setSessionExpired(true); setStatus("anonymous");
+        },
+      });
+      const existing = await chosen.getSession();
+      if (cancelled) return;
+      if (existing) {
+        setSession(existing);
+        setStatus("authenticated");
+        setSession(await loadAccount(existing));
+      } else {
+        setStatus("anonymous");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [loadAccount]);
 
-  const value = useMemo<AuthCtx>(() => ({
-    user, loading, login, logout, refresh,
-    isProvider: !!user?.roles.includes("PROVIDER"), isAdmin: !!user?.roles.includes("ADMIN"),
-  }), [user, loading, login, logout, refresh]);
+  // A pending applicant who returns to the tab may have been approved meanwhile.
+  useEffect(() => {
+    if (provider?.status !== "PENDING") return;
+    const check = () => { if (document.visibilityState === "visible") void api.myProvider().then(setProvider).catch(() => {}); };
+    document.addEventListener("visibilitychange", check);
+    return () => document.removeEventListener("visibilitychange", check);
+  }, [provider?.status]);
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
-}
+  const signIn = useCallback(async (email: string, password: string, remember: boolean) => {
+    const current = adapterRef.current!;
+    await current.signIn(email, password, remember);
+    const fresh = await current.getSession();
+    if (!fresh) throw new Error("Sign-in did not return a session.");
+    setSessionExpired(false);
+    setStatus("authenticated");
+    setSession(fresh);
+    setSession(await loadAccount(fresh));
+  }, [loadAccount]);
 
-export function useAuth() {
-  const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
-  return ctx;
+  const signOut = useCallback(async () => {
+    await adapterRef.current?.signOut();
+    setSession(null); setProfile(undefined); setProvider(null); setSessionExpired(false);
+    setStatus("anonymous");
+  }, []);
+
+  const refreshSession = useCallback(async () => {
+    const fresh = await adapterRef.current?.getSession(true);
+    if (!fresh) return false;
+    setSession(fresh);
+    await loadAccount(fresh);
+    return fresh.groups.includes("PROVIDER");
+  }, [loadAccount]);
+
+  const reloadAccount = useCallback(async () => {
+    if (sessionRef.current) await loadAccount(sessionRef.current);
+  }, [loadAccount]);
+
+  const saveProfile = useCallback(async (body: Parameters<typeof api.saveProfile>[0]) => {
+    const saved = await api.saveProfile(body);
+    setProfile(saved);
+    return saved;
+  }, []);
+
+  const value = useMemo<AuthValue>(() => {
+    const hasGroup = !!session?.groups.includes("PROVIDER");
+    return {
+      status, session, profile, provider, accountLoading, isAdmin, adapter, sessionExpired,
+      hasProviderTools: hasGroup && provider?.status === "APPROVED",
+      needsSessionRefresh: provider?.status === "APPROVED" && !hasGroup,
+      displayName: profile?.full_name || (isAdmin ? "Admin" : session?.email ?? ""),
+      signIn, signOut, refreshSession, reloadAccount, saveProfile,
+    };
+  }, [status, session, profile, provider, accountLoading, isAdmin, adapter, sessionExpired, signIn, signOut, refreshSession, reloadAccount, saveProfile]);
+
+  return <Context.Provider value={value}>{children}</Context.Provider>;
 }

@@ -1,4 +1,116 @@
-import{FormEvent,useEffect,useState}from"react";import{Link,useNavigate}from"react-router-dom";import{Search,MapPin,ShieldCheck,CalendarCheck,BadgeCheck,ClipboardCheck,UserCheck,ArrowRight}from"lucide-react";import{Button}from"../../components/ui/Button";import{Card}from"../../components/ui/Card";import"./HomePage.css";import fallbackHero from"../../assets/images/hero-provider-v2.png";import{CITIES}from"../../data/catalog";import{listCategories}from"../../services/categoryService";import{listFeaturedProviders}from"../../services/providerService";import{DEFAULT_CATEGORIES}from"../../data/catalog";import{RATING_LABEL,type Category,type Provider}from"../../types";import{TrustSection}from"../../components/common/TrustSection";
-// Drop a licensed photo at src/assets/images/hero-custom.(jpg|png|webp) to replace the fallback automatically.
-const custom=Object.values(import.meta.glob("../../assets/images/hero-custom.*",{eager:true,import:"default"}))[0] as string|undefined;const heroProvider=custom??fallbackHero;
-export function HomePage(){const nav=useNavigate();const[cats,setCats]=useState<Category[]>(DEFAULT_CATEGORIES);const[featured,setFeatured]=useState<Provider[]>([]);useEffect(()=>{listCategories().then(r=>setCats(r.categories));listFeaturedProviders().then(r=>setFeatured(r.providers))},[]);const[service,setService]=useState("");const[city,setCity]=useState("");function submit(e:FormEvent){e.preventDefault();const q=new URLSearchParams();if(service)q.set("service",service);if(city)q.set("city",city);nav(`/services?${q}`)}return <><section className="hero"><div className="container herogrid"><div><span className="eyebrow">LOCAL SERVICES, MADE SIMPLE</span><h1>Find trusted local professionals <em>near you.</em></h1><p>Discover reliable service providers in your city, book with confidence, and keep every job organized in one place.</p><form className="searchbox" onSubmit={submit}><label><Search/><select value={service} onChange={e=>setService(e.target.value)}><option value="">Select a service</option>{cats.map(c=><option key={c.id} value={c.name}>{c.name}</option>)}</select></label><label><MapPin/><select value={city} onChange={e=>setCity(e.target.value)}><option value="">Select town or city</option>{CITIES.map(x=><option key={x}>{x}</option>)}</select></label><Button variant="gold" type="submit">Find a Provider</Button></form><div className="trust"><span><ShieldCheck/>Provider applications reviewed</span><span><CalendarCheck/>Organized booking history</span></div></div><div className="heroimage"><img src={heroProvider} alt="Local service professional at work"/><div className="hero-float"><strong>Local skills. Easier discovery.</strong><span>Find services in your town or city.</span></div></div></div></section><section className="section"><div className="container"><span className="eyebrow">POPULAR SERVICES</span><h2>Start with what you need.</h2><div className="pills">{cats.slice(0,6).map(c=><button key={c.id} onClick={()=>{setService(c.name);window.scrollTo({top:0,behavior:"smooth"})}}>{c.name}</button>)}</div></div></section><section className="section featured"><div className="container"><div className="section-title-row"><div><span className="eyebrow">FEATURED PROVIDERS</span><h2>Meet local professionals.</h2></div><span className="muted">Open a profile to see services, work gallery and recent reviews.</span></div><div className="featured-grid">{featured.map((p,i)=><Card className="provider-card" key={p.id}><div className={`provider-photo provider-photo-${i+1}`}><span>{p.name.charAt(0)}</span></div><div className="provider-card-body"><h3>{p.name}</h3><p>{p.categoryName} · {p.city}</p><div className="provider-rating"><strong>{p.overallRating?RATING_LABEL[p.overallRating]:"New"}</strong><span>{p.verifiedReviewCount} verified reviews</span></div><Link to={`/providers/${p.id}`}><Button variant="outline">View Profile</Button></Link></div></Card>)}</div></div></section><section className="section soft" id="how-it-works"><div className="container"><div className="center"><span className="eyebrow">HOW IT WORKS</span><h2>A clear path from search to completed service.</h2></div><div className="steps">{[[Search,"Search","Choose a service and city."],[UserCheck,"Choose a provider","Review the provider profile, services, gallery and reviews."],[CalendarCheck,"Book the work","Send the date, time and job description."],[ClipboardCheck,"Confirm & review","Confirm finished work and share your experience."]].map(([I,t,d],i)=><Card key={String(t)}><b>0{i+1}</b><I/><h3>{String(t)}</h3><p>{String(d)}</p></Card>)}</div></div></section><TrustSection/><section className="section" id="about"><div className="container about"><div><span className="eyebrow">ABOUT SERVALINK</span><h2>Built around local discovery and accountable service.</h2><p>SERVAlink helps citizens find service providers in their town or city without depending only on word of mouth or scattered social-media posts.</p><p>Bookings create a structured service history, while reviews and reports help customers make better-informed choices.</p></div><div className="aboutcards"><Card><ShieldCheck/><div><h3>Provider applications</h3><p>People apply before Provider tools are enabled.</p></div></Card><Card><CalendarCheck/><div><h3>Booking history</h3><p>Citizens and providers can follow every request.</p></div></Card><Card><BadgeCheck/><div><h3>Experience-based feedback</h3><p>Reviews stay connected to actual bookings.</p></div></Card></div></div></section><section className="cta"><div className="container"><div><small>OFFER A LOCAL SERVICE?</small><h2>Create your Provider profile and start receiving booking requests.</h2></div><Link to="/become-provider"><Button variant="gold">Start Provider Application <ArrowRight size={17}/></Button></Link></div></section></>}
+import { useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { BadgeCheck, CalendarCheck, MapPin, Search, ShieldCheck } from "lucide-react";
+import { api } from "../../api";
+import heroPhoto from "../../assets/hero-worker.jpg"; // TEMPORARY placeholder, see src/assets/README.md
+import { CategoryIcon } from "../../components/domain/CategoryIcon";
+import { Button, ButtonLink } from "../../components/ui/Button";
+import { Skeleton } from "../../components/ui/Display";
+import { TextField, SelectField } from "../../components/ui/Field";
+import { useResource } from "../../lib/useResource";
+
+export function HomePage() {
+  const navigate = useNavigate();
+  const categories = useResource(() => api.categories(), []);
+  const [category, setCategory] = useState("");
+  const [city, setCity] = useState("");
+  const [errors, setErrors] = useState<{ category?: string; city?: string }>({});
+  const list = categories.data ?? [];
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    const next = {
+      category: category ? undefined : "Choose a category",
+      city: city.trim() ? undefined : "Enter your town or city",
+    };
+    setErrors(next);
+    if (next.category || next.city) return;
+    navigate(`/search?category=${encodeURIComponent(category)}&city=${encodeURIComponent(city.trim())}`);
+  };
+
+  return (
+    <>
+      <section className="hero" aria-labelledby="hero-title">
+        <div className="hero-photo"><img src={heroPhoto} alt="" /></div>
+        <div className="hero-inner">
+          <h1 id="hero-title">Find trusted local service providers</h1>
+          <p className="lead">Book skilled professionals in your town for everyday home and business services.</p>
+          <form className="search-card" onSubmit={submit} noValidate aria-label="Search for a service">
+            <SelectField label="Service category" value={category} error={errors.category}
+              onChange={(e) => setCategory(e.target.value)} disabled={categories.loading || !list.length}>
+              <option value="">{categories.loading ? "Loading categories…" : list.length ? "Service category" : "No categories yet"}</option>
+              {list.map((c) => <option key={c.category_id} value={c.category_name}>{c.category_name}</option>)}
+            </SelectField>
+            <TextField label="Town or city" placeholder="e.g. Buea" value={city} error={errors.city}
+              onChange={(e) => setCity(e.target.value)} autoComplete="address-level2" />
+            <div style={{ alignSelf: "end" }}><Button type="submit" size="lg" icon={<Search size={18} />}>Search</Button></div>
+          </form>
+        </div>
+      </section>
+
+      {(categories.loading || list.length > 0) && (
+        <section className="section" aria-labelledby="cats-title">
+          <div className="section-head row-between">
+            <h2 id="cats-title">Browse by category</h2>
+            <Link to="/search" className="small">See all providers</Link>
+          </div>
+          {categories.loading ? (
+            <div className="cat-grid">{Array.from({ length: 6 }, (_, i) => <Skeleton key={i} height={108} radius={12} />)}</div>
+          ) : (
+            <div className="cat-grid">
+              {list.slice(0, 12).map((c) => (
+                <Link key={c.category_id} className="cat-tile" to={`/search?category=${encodeURIComponent(c.category_name)}`}>
+                  <span className="ci"><CategoryIcon name={c.category_name} /></span>{c.category_name}
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      <section className="section" id="how-it-works" aria-labelledby="how-title">
+        <div className="section-head">
+          <h2 id="how-title">How ServaLink works</h2>
+          <p>From search to a finished job, with every step recorded on your booking.</p>
+        </div>
+        <div className="steps">
+          <div className="card step"><span className="n">1</span><h3>Search your town</h3><p className="muted small">Pick a category and your town to see approved providers, their reviews and examples of their work.</p></div>
+          <div className="card step"><span className="n">2</span><h3>Send a booking request</h3><p className="muted small">Choose a date and describe the job. The provider accepts or declines, and you can follow progress on your booking.</p></div>
+          <div className="card step"><span className="n">3</span><h3>Confirm and review</h3><p className="muted small">When the provider marks the work finished, you confirm it. Then you can leave a review tied to that booking.</p></div>
+        </div>
+      </section>
+
+      <section className="section" id="about" aria-labelledby="about-title">
+        <div className="section-head">
+          <h2 id="about-title">Local services you can trust</h2>
+          <p>ServaLink helps people in Cameroon find suitable service providers in their own town.</p>
+        </div>
+        <div className="feature-split">
+          <div className="card card-pad stack-sm">
+            <span className="ico ico-green" style={{ width: 44, height: 44, borderRadius: 12, display: "grid", placeItems: "center" }}><ShieldCheck size={22} aria-hidden="true" /></span>
+            <h3>Reviews from real bookings</h3>
+            <p className="muted small">Only customers with a completed booking can review a provider, so every review is marked as a verified booking.</p>
+          </div>
+          <div className="card card-pad stack-sm">
+            <span className="ico ico-green" style={{ width: 44, height: 44, borderRadius: 12, display: "grid", placeItems: "center" }}><MapPin size={22} aria-hidden="true" /></span>
+            <h3>Local by design</h3>
+            <p className="muted small">Providers are listed by town. ServaLink doesn't process payments, so you agree on the work directly with your provider.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="section" aria-label="Become a provider">
+        <div className="cta-band">
+          <div>
+            <h2>Offer your skills in your town</h2>
+            <p>Apply once with your existing account. After approval, list your services and receive booking requests.</p>
+          </div>
+          <ButtonLink to="/become-provider" variant="light" size="lg" icon={<BadgeCheck size={18} />}>Become a provider</ButtonLink>
+        </div>
+      </section>
+      <div className="row" style={{ justifyContent: "center", marginTop: 28 }}>
+        <span className="muted small row" style={{ gap: 6 }}><CalendarCheck size={16} aria-hidden="true" />Free to join. No payment handled on ServaLink.</span>
+      </div>
+    </>
+  );
+}
