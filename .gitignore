@@ -7,3 +7,4 @@ dist
 *.tsbuildinfo
 e2e/screenshots/
 e2e/fixtures/
+*.zip
