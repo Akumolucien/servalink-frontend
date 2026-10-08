@@ -1,0 +1,1 @@
+.btn{min-height:44px;padding:0 20px;border-radius:10px;border:1px solid transparent;font-weight:750;cursor:pointer}.btn.primary{background:var(--maroon);color:#fff}.btn.gold{background:var(--gold);color:var(--maroon-dark)}.btn.outline{background:#fff;border-color:var(--maroon);color:var(--maroon)}.btn.ghost{background:transparent;color:var(--text)}

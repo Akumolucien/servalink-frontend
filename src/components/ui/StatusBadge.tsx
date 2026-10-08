@@ -1,0 +1,1 @@
+export function StatusBadge({status}:{status:string}){return <span style={{display:"inline-flex",padding:"5px 9px",borderRadius:999,background:"#f8edcf",color:"#5f1028",fontSize:12,fontWeight:800}}>{status.replaceAll("_"," ")}</span>}

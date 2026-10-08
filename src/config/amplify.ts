@@ -1,0 +1,1 @@
+import{Amplify}from"aws-amplify";import{awsConfig}from"./aws";export function configureAmplify(){if(awsConfig.userPoolId&&awsConfig.userPoolClientId)Amplify.configure({Auth:{Cognito:{userPoolId:awsConfig.userPoolId,userPoolClientId:awsConfig.userPoolClientId,loginWith:{email:true}}}})}

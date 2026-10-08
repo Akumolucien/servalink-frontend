@@ -1,0 +1,9 @@
+.loading-state{display:flex;align-items:center;justify-content:center;gap:12px;min-height:40vh;color:var(--muted);font-weight:600}
+.spinner{width:20px;height:20px;border:3px solid var(--border);border-top-color:var(--maroon);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.system-page{min-height:70vh;display:grid;place-content:center;justify-items:center;gap:10px;text-align:center;padding:24px}
+.system-page span{font-size:4rem;font-weight:850;color:var(--gold)}.system-page h1{color:var(--maroon);margin:0}.system-page p{color:var(--muted);max-width:420px;margin:0 0 10px}
+.btn-link{display:inline-block;background:var(--maroon);color:#fff;padding:11px 20px;border-radius:12px;font-weight:700}
+.btn-link:focus-visible,.menu-btn:focus-visible,.dash aside a:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.auth-error{background:#fbeaea;color:var(--danger);border:1px solid #efc5c5;border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:.9rem}
+.link-btn{background:none;border:0;padding:0;color:var(--maroon);font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
