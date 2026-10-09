@@ -1,36 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Users } from "lucide-react";
-import { api, type AdminProvider, type ProviderStatus } from "../../api";
+import { api, type AdminProvider } from "../../api";
 import { NoteModal } from "../../components/domain/NoteModal";
 import { Button } from "../../components/ui/Button";
 import { Avatar, Banner, CardSkeleton, EmptyState, ErrorState, PageHeader, StatusBadge } from "../../components/ui/Display";
 import { Modal, useToast } from "../../components/ui/Overlay";
 import { Tabs } from "../../components/ui/Tabs";
 import { formatDateTime } from "../../lib/format";
+import { DECISIONS, type DecisionDef } from "../../lib/providerDecisions";
 import { PROVIDER_STATUS } from "../../lib/status";
 import { useResource } from "../../lib/useResource";
 
 type Tab = "PENDING" | "APPROVED" | "SUSPENDED" | "REJECTED" | "BANNED";
-type Decision = Exclude<ProviderStatus, "PENDING">;
-
-interface DecisionDef { status: Decision; label: string; variant: "primary" | "danger-outline" | "secondary"; tone?: "danger"; noteLabel: string; seed?: string; done: string }
-
-const DECISIONS: Record<ProviderStatus, DecisionDef[]> = {
-  PENDING: [
-    { status: "APPROVED", label: "Approve", variant: "primary", noteLabel: "Note for the provider", seed: "Verified and approved.", done: "Provider approved" },
-    { status: "REJECTED", label: "Reject", variant: "danger-outline", tone: "danger", noteLabel: "Reason for rejecting", done: "Application rejected" },
-  ],
-  APPROVED: [
-    { status: "SUSPENDED", label: "Suspend", variant: "danger-outline", tone: "danger", noteLabel: "Reason for suspending", done: "Provider suspended" },
-    { status: "BANNED", label: "Ban", variant: "danger-outline", tone: "danger", noteLabel: "Reason for banning", done: "Provider banned" },
-  ],
-  SUSPENDED: [
-    { status: "APPROVED", label: "Reinstate", variant: "primary", noteLabel: "Note for the provider", seed: "Suspension lifted.", done: "Provider reinstated" },
-    { status: "BANNED", label: "Ban", variant: "danger-outline", tone: "danger", noteLabel: "Reason for banning", done: "Provider banned" },
-  ],
-  REJECTED: [], BANNED: [],
-};
 
 export function AdminProvidersPage() {
   const toast = useToast();
