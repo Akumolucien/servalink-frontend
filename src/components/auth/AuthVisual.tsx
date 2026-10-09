@@ -1,10 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { MapPin, ShieldCheck, Users } from "lucide-react";
 
-// Drop a licensed or generated photograph at src/assets/auth-painter.(jpg|jpeg|webp|png) and it is used automatically.
-// Until then the panel shows an on-brand green background. No component change is needed when the photo arrives.
-const photos = import.meta.glob<string>("../../assets/auth-painter.{jpg,jpeg,webp,png}", { eager: true, query: "?url", import: "default" });
-const photo = Object.values(photos)[0];
+import photo from "../../assets/auth-painter.webp";
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -51,16 +48,9 @@ export function AuthVisual() {
   }, []);
 
   return (
-    <aside ref={ref} className={`auth-visual${photo ? "" : " no-photo"}`} aria-label="About ServaLink"
+    <aside ref={ref} className="auth-visual" aria-label="About ServaLink"
       style={path ? { clipPath: `path('${path}')` } : undefined}>
-      {photo ? <img className="auth-visual-img" src={photo} alt="" /> : (
-        <svg className="auth-visual-art" viewBox="0 0 400 520" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
-          <g fill="none" stroke="#fff" strokeOpacity="0.1" strokeWidth="2">
-            <path d="M60 330 200 210l140 120" /><path d="M92 312v150h216V312" /><rect x="170" y="340" width="60" height="122" rx="6" />
-            <circle cx="340" cy="90" r="120" /><circle cx="340" cy="90" r="80" /><circle cx="340" cy="90" r="40" />
-          </g>
-        </svg>
-      )}
+      <div className="auth-visual-img" style={{ backgroundImage: `url(${photo})` }} aria-hidden="true" />
       <div className="auth-visual-shade" aria-hidden="true" />
       <div className="auth-visual-copy">
         <p className="auth-visual-title">Trusted local professionals for a better home.</p>

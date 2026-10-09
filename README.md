@@ -57,8 +57,8 @@ Login, sign up, e-mail verification, password recovery and profile onboarding sh
 a white rounded card on a light green page, form on the left, curved image panel on the right (`components/auth/`).
 The panel outline is computed from its real size (true arcs, never stretched). Below 900 px the panel is removed so the form
 comes first; fields are icon-led with real (visually hidden) labels. All Cognito logic, validation, `?next=` handling and
-"Remember me" behaviour are unchanged; only markup and `styles/auth.css` changed. The painter photograph is a drop-in file
-(`src/assets/README.md`). No Google/Facebook buttons: those identity providers are not configured.
+"Remember me" behaviour are unchanged; only markup and `styles/auth.css` changed. The painter photograph is `src/assets/auth-painter.webp`
+(see `src/assets/README.md`). No Google/Facebook buttons: those identity providers are not configured.
 
 ## Notification deep links
 
