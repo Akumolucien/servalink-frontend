@@ -90,7 +90,7 @@ async function main() {
       await anon.page.goto(`${APP}/search?category=Plumbing&city=Buea`);
       await anon.page.getByText("No providers found").waitFor();
       await anon.page.goto(APP);
-      await anon.page.locator(".cat-tile", { hasText: "Plumbing" }).waitFor(); // categories come from the API
+      await anon.page.locator(".home-cat", { hasText: "Plumbing" }).waitFor(); // categories come from the API
     });
 
     await step("citizen A registers (code verify) and the saved profile is created on first login", async () => {
@@ -243,7 +243,7 @@ async function main() {
       await anon.page.goto(APP);
       await anon.page.getByLabel("Service category").selectOption("Plumbing");
       await anon.page.getByLabel("Town or city").fill("Buea");
-      await anon.page.getByRole("button", { name: "Search" }).click();
+      await anon.page.getByRole("button", { name: "Find Providers" }).click();
       await anon.page.getByRole("heading", { name: "Plumbing services in Buea" }).waitFor();
       await anon.page.getByText("Fon Plumbing Services").waitFor();
       await anon.page.getByRole("link", { name: "View Profile" }).click();

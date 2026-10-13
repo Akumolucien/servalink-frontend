@@ -31,7 +31,7 @@ watch(page);
 
 await check("home loads, shows the app, no local-integration banner", async () => {
   await page.goto(SITE, { waitUntil: "networkidle" });
-  await page.getByRole("heading", { name: /Find trusted local service providers/ }).waitFor();
+  await page.getByRole("heading", { name: /Find the Right Professional for Every Job/ }).waitFor();
   if (await page.getByText("LOCAL INTEGRATION MODE").count()) throw new Error("dev banner present in production");
 });
 await check("browser reaches GET /service-categories cross-origin (CORS works from the Amplify origin)", async () => {

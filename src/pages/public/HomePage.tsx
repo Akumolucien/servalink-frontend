@@ -1,13 +1,37 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { BadgeCheck, CalendarCheck, MapPin, Search, ShieldCheck } from "lucide-react";
+import { ArrowRight, BadgeCheck, CalendarCheck, CheckCircle2, Flag, Images, Search, ShieldCheck, Tags, UserSearch } from "lucide-react";
 import { api } from "../../api";
-import heroPhoto from "../../assets/hero-worker.jpg"; // TEMPORARY placeholder, see src/assets/README.md
+import paintingPhoto from "../../assets/auth-painter.webp";
 import { CategoryIcon } from "../../components/domain/CategoryIcon";
+import { FeaturedProviders } from "../../components/home/FeaturedProviders";
 import { Button, ButtonLink } from "../../components/ui/Button";
-import { Skeleton } from "../../components/ui/Display";
+import { EmptyState, ErrorState, Skeleton } from "../../components/ui/Display";
 import { TextField, SelectField } from "../../components/ui/Field";
 import { useResource } from "../../lib/useResource";
+
+const STEPS = [
+  { icon: Search, title: "Search for a Service", text: "Choose a service category and your city." },
+  { icon: UserSearch, title: "Explore Providers", text: "View profiles and examples of completed work." },
+  { icon: CalendarCheck, title: "Request a Booking", text: "Send a booking request and follow its progress." },
+  { icon: CheckCircle2, title: "Confirm Completion", text: "Confirm completed work and share your experience." },
+];
+
+const BENEFITS = [
+  { icon: Tags, title: "Search by category and city", text: "Find approved providers for the service you need, in your own town." },
+  { icon: Images, title: "Profiles and work galleries", text: "See what a provider offers, what customers say and photos of their work." },
+  { icon: CalendarCheck, title: "Manage your bookings", text: "Send requests, and follow each booking from request to completion in one place." },
+  { icon: ShieldCheck, title: "Reviews after the work is done", text: "You confirm the work is complete before you can leave a review, so reviews come from real bookings." },
+  { icon: Flag, title: "Report a problem", text: "If something goes wrong with a booking, report it and an administrator reviews it." },
+];
+
+const FAQ = [
+  { q: "How do I find a Provider?", a: "Choose a service category and your town or city on this page, then open a provider's profile to see their services, customer reviews and photos of their work. You can browse without an account." },
+  { q: "How do I request a booking?", a: "Log in or create an account, open a provider's profile and choose Book this service. Pick a date and describe the job. The provider accepts or declines your request, and you can follow its progress under My Bookings." },
+  { q: "How do I become a Provider?", a: "Use your existing ServaLink account and apply with your service category, a title and a short description. An administrator reviews every application. Once you are approved you can list your services and receive booking requests." },
+  { q: "When can I leave a review?", a: "After the provider marks the work as finished and you confirm it is complete. Each review is tied to that booking and is marked as a verified booking." },
+  { q: "What happens if I have a problem with a booking?", a: "Open the booking and choose Report a problem. An administrator reviews the report and you see the outcome in your account. A report does not change the booking's status." },
+];
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -29,88 +53,123 @@ export function HomePage() {
   };
 
   return (
-    <>
-      <section className="hero" aria-labelledby="hero-title">
-        <div className="hero-photo"><img src={heroPhoto} alt="" /></div>
-        <div className="hero-inner">
-          <h1 id="hero-title">Find trusted local service providers</h1>
-          <p className="lead">Book skilled professionals in your town for everyday home and business services.</p>
-          <form className="search-card" onSubmit={submit} noValidate aria-label="Search for a service">
+    <div className="home">
+      <section className="home-hero" aria-labelledby="hero-title">
+        <div className="home-hero-copy">
+          <h1 id="hero-title">Find the Right Professional for Every Job.</h1>
+          <p className="lead">Discover skilled local service providers in your city, explore their work, and book services with confidence.</p>
+          <form className="home-search" onSubmit={submit} noValidate aria-label="Search for a service">
             <SelectField label="Service category" value={category} error={errors.category}
               onChange={(e) => setCategory(e.target.value)} disabled={categories.loading || !list.length}>
-              <option value="">{categories.loading ? "Loading categories…" : list.length ? "Service category" : "No categories yet"}</option>
+              <option value="">{categories.loading ? "Loading categories…" : list.length ? "Choose a category" : "No categories yet"}</option>
               {list.map((c) => <option key={c.category_id} value={c.category_name}>{c.category_name}</option>)}
             </SelectField>
             <TextField label="Town or city" placeholder="e.g. Buea" value={city} error={errors.city}
               onChange={(e) => setCity(e.target.value)} autoComplete="address-level2" />
-            <div style={{ alignSelf: "end" }}><Button type="submit" size="lg" icon={<Search size={18} />}>Search</Button></div>
+            <Button type="submit" size="lg" icon={<Search size={18} />}>Find Providers</Button>
           </form>
+          <p className="small muted">Free to use. ServaLink does not process payments.</p>
+        </div>
+        <div className="home-hero-photo">
+          <img src={paintingPhoto} alt="A painter rolling green paint onto the wall of a house" fetchPriority="high" width={1448} height={1086} />
         </div>
       </section>
 
-      {(categories.loading || list.length > 0) && (
-        <section className="section" aria-labelledby="cats-title">
-          <div className="section-head row-between">
-            <h2 id="cats-title">Browse by category</h2>
-            <Link to="/search" className="small">See all providers</Link>
-          </div>
-          {categories.loading ? (
-            <div className="cat-grid">{Array.from({ length: 6 }, (_, i) => <Skeleton key={i} height={108} radius={12} />)}</div>
-          ) : (
-            <div className="cat-grid">
-              {list.slice(0, 12).map((c) => (
-                <Link key={c.category_id} className="cat-tile" to={`/search?category=${encodeURIComponent(c.category_name)}`}>
-                  <span className="ci"><CategoryIcon name={c.category_name} /></span>{c.category_name}
-                </Link>
-              ))}
+      <section className="home-band" aria-labelledby="cats-title">
+        <div className="home-wrap">
+          <div className="home-head row-between">
+            <div>
+              <h2 id="cats-title">Popular Services</h2>
+              <p>Choose a category to see the providers offering it.</p>
             </div>
+            <Link to="/search" className="small nowrap">Browse all providers</Link>
+          </div>
+          {categories.loading && !categories.data ? (
+            <div className="home-cat-grid" aria-busy="true">{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} height={132} radius={16} />)}</div>
+          ) : categories.error ? (
+            <div className="card"><ErrorState error={categories.error} onRetry={categories.reload} title="We couldn't load service categories" /></div>
+          ) : list.length === 0 ? (
+            <div className="card"><EmptyState icon={<Tags size={24} />} title="No service categories yet">Categories appear here as soon as they are added.</EmptyState></div>
+          ) : (
+            <ul className="home-cat-grid">
+              {list.map((c) => (
+                <li key={c.category_id}>
+                  <Link className="home-cat" to={`/search?category=${encodeURIComponent(c.category_name)}`}>
+                    <span className="ci"><CategoryIcon name={c.category_name} size={26} /></span>
+                    <span className="name">{c.category_name}</span>
+                    <span className="go small">Find providers <ArrowRight size={14} aria-hidden="true" /></span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           )}
-        </section>
-      )}
-
-      <section className="section" id="how-it-works" aria-labelledby="how-title">
-        <div className="section-head">
-          <h2 id="how-title">How ServaLink works</h2>
-          <p>From search to a finished job, with every step recorded on your booking.</p>
-        </div>
-        <div className="steps">
-          <div className="card step"><span className="n">1</span><h3>Search your town</h3><p className="muted small">Pick a category and your town to see approved providers, their reviews and examples of their work.</p></div>
-          <div className="card step"><span className="n">2</span><h3>Send a booking request</h3><p className="muted small">Choose a date and describe the job. The provider accepts or declines, and you can follow progress on your booking.</p></div>
-          <div className="card step"><span className="n">3</span><h3>Confirm and review</h3><p className="muted small">When the provider marks the work finished, you confirm it. Then you can leave a review tied to that booking.</p></div>
         </div>
       </section>
 
-      <section className="section" id="about" aria-labelledby="about-title">
-        <div className="section-head">
-          <h2 id="about-title">Local services you can trust</h2>
-          <p>ServaLink helps people in Cameroon find suitable service providers in their own town.</p>
-        </div>
-        <div className="feature-split">
-          <div className="card card-pad stack-sm">
-            <span className="ico ico-green" style={{ width: 44, height: 44, borderRadius: 12, display: "grid", placeItems: "center" }}><ShieldCheck size={22} aria-hidden="true" /></span>
-            <h3>Reviews from real bookings</h3>
-            <p className="muted small">Only customers with a completed booking can review a provider, so every review is marked as a verified booking.</p>
+      <FeaturedProviders />
+
+      <section className="home-band home-band-warm" id="how-it-works" aria-labelledby="how-title">
+        <div className="home-wrap">
+          <div className="home-head">
+            <h2 id="how-title">How ServaLink Works</h2>
+            <p>From search to a finished job, with every step recorded on your booking.</p>
           </div>
-          <div className="card card-pad stack-sm">
-            <span className="ico ico-green" style={{ width: 44, height: 44, borderRadius: 12, display: "grid", placeItems: "center" }}><MapPin size={22} aria-hidden="true" /></span>
-            <h3>Local by design</h3>
-            <p className="muted small">Providers are listed by town. ServaLink doesn't process payments, so you agree on the work directly with your provider.</p>
-          </div>
+          <ol className="home-steps">
+            {STEPS.map(({ icon: Icon, title, text }, index) => (
+              <li key={title} className="home-step">
+                <span className="num" aria-hidden="true">{index + 1}</span>
+                <span className="ico"><Icon size={22} aria-hidden="true" /></span>
+                <h3>{title}</h3>
+                <p className="muted small">{text}</p>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 
-      <section className="section" aria-label="Become a provider">
-        <div className="cta-band">
+      <section className="home-band" id="about" aria-labelledby="why-title">
+        <div className="home-wrap">
+          <div className="home-head">
+            <h2 id="why-title">Why Choose ServaLink?</h2>
+            <p>Local services for people in Cameroon, with the tools to book them clearly.</p>
+          </div>
+          <ul className="home-benefits">
+            {BENEFITS.map(({ icon: Icon, title, text }) => (
+              <li key={title} className="home-benefit">
+                <span className="ico"><Icon size={22} aria-hidden="true" /></span>
+                <div><h3>{title}</h3><p className="muted small">{text}</p></div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className="home-wrap home-cta-wrap" aria-labelledby="cta-title">
+        <div className="home-cta">
           <div>
-            <h2>Offer your skills in your town</h2>
-            <p>Apply once with your existing account. After approval, list your services and receive booking requests.</p>
+            <h2 id="cta-title">Your Skills Deserve to Be Discovered.</h2>
+            <p>Create your professional profile, showcase your work, and connect with people looking for your services.</p>
+            <p className="small">Provider applications are reviewed and approved by an administrator.</p>
           </div>
-          <ButtonLink to="/become-provider" variant="light" size="lg" icon={<BadgeCheck size={18} />}>Become a provider</ButtonLink>
+          <ButtonLink to="/become-provider" variant="light" size="lg" icon={<BadgeCheck size={18} />}>Become a Provider</ButtonLink>
         </div>
       </section>
-      <div className="row" style={{ justifyContent: "center", marginTop: 28 }}>
-        <span className="muted small row" style={{ gap: 6 }}><CalendarCheck size={16} aria-hidden="true" />Free to join. No payment handled on ServaLink.</span>
-      </div>
-    </>
+
+      <section className="home-band home-band-sage" id="faq" aria-labelledby="faq-title">
+        <div className="home-wrap home-faq-wrap">
+          <div className="home-head">
+            <h2 id="faq-title">Frequently Asked Questions</h2>
+          </div>
+          <div className="home-faq">
+            {FAQ.map(({ q, a }) => (
+              <details key={q}>
+                <summary>{q}</summary>
+                <p>{a}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

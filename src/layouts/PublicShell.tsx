@@ -55,13 +55,14 @@ export function Footer() {
       <div className="inner">
         <div className="stack-sm">
           <Brand />
-          <p className="small" style={{ maxWidth: "36ch" }}>Find trusted local service providers in your town and book them in minutes.</p>
+          <p className="small" style={{ maxWidth: "36ch" }}>ServaLink connects people in Cameroon with local service providers. Search by category and city, explore profiles and work galleries, and manage your bookings in one place.</p>
         </div>
         <div>
           <h4>Platform</h4>
           <Link to="/search">Find a service</Link>
           <Link to="/become-provider">Become a provider</Link>
           <Link to="/#how-it-works">How it works</Link>
+          <Link to="/#faq">FAQ</Link>
         </div>
         <div>
           <h4>Account</h4>

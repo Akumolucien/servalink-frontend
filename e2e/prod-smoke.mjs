@@ -4,7 +4,7 @@ const browser = await chromium.launch({ executablePath: "C:/Program Files/Google
 const page = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
 const errors = []; page.on("pageerror", (e) => errors.push(String(e)));
 const base = "http://127.0.0.1:4273";
-await page.goto(base); await page.getByRole("heading", { name: /Find trusted local service providers/ }).waitFor();
+await page.goto(base); await page.getByRole("heading", { name: /Find the Right Professional for Every Job/ }).waitFor();
 const banner = await page.getByText("LOCAL INTEGRATION MODE").count();
 console.log("home renders; local banner count:", banner);
 await page.getByLabel("Service category").waitFor();

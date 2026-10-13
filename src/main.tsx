@@ -6,6 +6,7 @@ import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/ui.css";
 import "./styles/layout.css";
+import "./styles/home.css";
 import "./styles/auth.css";
 import App from "./App";
 import { AuthProvider } from "./auth/AuthContext";

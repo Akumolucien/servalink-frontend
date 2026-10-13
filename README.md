@@ -71,7 +71,9 @@ E-mails, admin SNS mail and push notifications link to exact pages. The routes t
 - The timeline is derived from `booking.status`; only `created_at` and `updated_at` are shown as times.
 - Provider Tools need the PROVIDER group in the token AND an APPROVED provider record. After approval the app refreshes the token (automatically once, or via "Refresh access").
 - Categories on the homepage, search and forms come from `GET /service-categories`; empty states are shown when there are none.
+- The homepage's "Meet Local Professionals" shows the first six approved providers in the API's order (`GET /providers?limit=6`, sorted by provider id), each with a photo from their own gallery when there is one. There is no featured flag and nothing is invented; ratings appear only for providers with real reviews.
 
 ## Assets
 
-`src/assets/hero-worker.jpg` is a TEMPORARY low-resolution placeholder cropped from the design mockup. Replace the file (or the single import in `HomePage.tsx`) with a high-resolution photograph; nothing depends on its dimensions.
+The homepage hero and the authentication pages share `src/assets/auth-painter.webp`; see `src/assets/README.md`. The earlier
+placeholder `src/assets/hero-worker.jpg` is no longer used.
